@@ -17,20 +17,22 @@ class Sphero
   class << self
     def start(dev, &block)
       retries_left = DEFAULT_RETRIES
-      sphero = self.new dev
-      if (block_given?)
-        begin
-           sphero.instance_eval(&block)
-        ensure
-           sphero.close
+      begin
+        sphero = self.new dev
+        if (block_given?)
+          begin
+             sphero.instance_eval(&block)
+          ensure
+             sphero.close
+          end
+          return nil
         end
-        return nil
+        return sphero      
+      rescue Errno::EBUSY
+        puts retries_left
+        retries_left = retries_left - 1
+        retry unless retries_left < 0
       end
-      return sphero
-    rescue Errno::EBUSY
-      puts retries_left
-      retries_left = retries_left - 1
-      retry unless retries_left > 0
     end
   end
 
