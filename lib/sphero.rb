@@ -45,7 +45,6 @@ class Sphero
 
     @dev  = 0x00
     @seq  = 0x00
-    @lock = Mutex.new
     @async_messages = []
   end
   
@@ -152,7 +151,7 @@ class Sphero
     header, body = nil
     new_responses = []
 
-    @lock.synchronize do
+    lock.synchronize do
       header, body = read_next_response
 
       while header && Response.async?(header)
@@ -167,13 +166,12 @@ class Sphero
 
   private
   
+  def lock
+    @@lock ||= Mutex.new
+  end
+
   def is_windows?
-    os = RUBY_PLATFORM.split("-")[1]
-    if (os == 'mswin' or os == 'bccwin' or os == 'mingw' or os == 'mingw32')
-      true
-    else
-      false
-    end
+    return (RUBY_PLATFORM.split("-")[1] == ('mswin' or 'bccwin' or 'mingw' or 'mingw32')) ? true : false
   end
 
   def initialize_serialport dev
@@ -191,7 +189,7 @@ class Sphero
   def write packet
     header, body = nil
 
-    @lock.synchronize do
+    lock.synchronize do
       rs, ws = IO.select([], [@sp], [], 20)
       @sp.write packet.to_str
       @seq += 1
