@@ -12,7 +12,7 @@ class Sphero
 
   DEFAULT_RETRIES = 3
 
-  attr_accessor :connection_types, :async_messages
+  attr_accessor :connection_types, :messages
 
   class << self
     def start(dev, &block)
@@ -46,11 +46,15 @@ class Sphero
     @dev  = 0x00
     @seq  = 0x00
     @lock = Mutex.new
-    @async_messages = []
+    @messages = Queue.new
   end
   
   def close
-    @lock.synchronize do
+    begin
+      stop
+    rescue Exception => e
+      puts e.message
+    ensure
       @sp.close
     end
   end
@@ -145,26 +149,7 @@ class Sphero
   def configure_collision_detection meth, x_t, y_t, x_spd, y_spd, dead
     write Request::ConfigureCollisionDetection.new(@seq, meth, x_t, y_t, x_spd, y_spd, dead)
   end
-
-  # read all outstanding async packets and store in async_responses
-  # would not do well to receive simple responses this way...
-  def read_async_messages
-    header, body = nil
-    new_responses = []
-
-    @lock.synchronize do
-      header, body = read_next_response
-
-      while header && Response.async?(header)
-        new_responses << Response::AsyncResponse.response(header, body)
-        header, body = read_next_response
-      end
-    end
-    
-    async_messages.concat(new_responses) unless new_responses.empty?
-    return !new_responses.empty?
-  end
-
+  
   private
   
   def is_windows?
@@ -191,24 +176,27 @@ class Sphero
   def write packet
     header, body = nil
 
+    IO.select([], [@sp], [], 20)
+
     @lock.synchronize do
-      rs, ws = IO.select([], [@sp], [], 20)
       @sp.write packet.to_str
       @seq += 1
+    end
 
-      header = nil
-      loop do
-        header = read_header(true)
-        break if header
-      end
+    IO.select([@sp], [], [], 20)
+    header = read_header(true)
+    body = read_body(header.last, true) if header
 
-      body = read_body(header.last, true) if header
+    # pick off asynch packets and store, till we get to the message response
+    while header && Response.async?(header)
+      messages << Response::AsyncResponse.response(header, body)
 
-      # pick off asynch packets and store, till we get to the message response
-      while header && Response.async?(header)
-        async_messages << Response::AsyncResponse.response(header, body)
-        header = read_header(true)
-        body = read_body(header.last, true) if header
+      IO.select([@sp], [], [], 20)
+      header = read_header(true)
+      if header
+        body = read_body(header.last, true)
+      else
+        body = nil
       end
     end
 
@@ -222,9 +210,10 @@ class Sphero
   end
 
   def read_header(blocking=false)
+    header = nil
     begin
       data = read_next_chunk(5, blocking)
-      return nil unless data && data.length == 5
+      return nil unless data
       header = data.unpack 'C5'
     rescue Errno::EBUSY
       retry
@@ -238,6 +227,7 @@ class Sphero
   end
 
   def read_body(len, blocking=false)
+    data = nil
     begin
       data = read_next_chunk(len, blocking)
       return nil unless data && data.length == len
@@ -253,12 +243,14 @@ class Sphero
   end
 
   def read_next_chunk(len, blocking=false)
+    data = nil
     begin
-      if blocking || is_windows?
-        data = @sp.read(len)
-        return nil unless data && data.length == len
-      else
-        data = @sp.read_nonblock(len)
+      @lock.synchronize do
+        if blocking || is_windows?
+          data = @sp.read(len)
+        else
+          data = @sp.read_nonblock(len)
+        end
       end
     rescue Errno::EBUSY
       retry

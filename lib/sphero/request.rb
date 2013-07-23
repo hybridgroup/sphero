@@ -22,7 +22,7 @@ class Sphero
 
     def response header, body
       name = self.class.name.split('::').last
-      klass = if Response.const_defined?(name)
+      if Response.const_defined?(name)
         Response.const_get(name).new header, body
       else
         Response.new header, body
