@@ -176,28 +176,24 @@ class Sphero
   def write packet
     header, body = nil
 
-    IO.select([], [@sp], [], 20)
+    IO.select([], [@sp], [], 10)
 
     @lock.synchronize do
       @sp.write packet.to_str
       @seq += 1
     end
 
-    IO.select([@sp], [], [], 20)
+    IO.select([@sp], [], [], 10)
     header = read_header(true)
-    body = read_body(header.last, true) if header
+    body = read_body(expected_length(header), true) if header
 
     # pick off asynch packets and store, till we get to the message response
     while header && Response.async?(header)
       messages << Response::AsyncResponse.response(header, body)
 
-      IO.select([@sp], [], [], 20)
+      IO.select([@sp], [], [], 10)
       header = read_header(true)
-      if header
-        body = read_body(header.last, true)
-      else
-        body = nil
-      end
+      body = read_body(expected_length(header), true)
     end
 
     response = packet.response header, body
@@ -205,15 +201,22 @@ class Sphero
     if response.success?
       response
     else
+      puts response.inspect
       raise "Unable to write to Sphero!"
     end
+  end
+
+  def expected_length(header = nil)
+    return 0 if header.nil?
+    return 11 if header[2] == 7
+    return header.last
   end
 
   def read_header(blocking=false)
     header = nil
     begin
       data = read_next_chunk(5, blocking)
-      return nil unless data
+      return nil unless data && data.length == 5
       header = data.unpack 'C5'
     rescue Errno::EBUSY
       retry
@@ -223,7 +226,35 @@ class Sphero
       retry
     end
 
-    header
+    fixup_header(header)
+  end
+
+  def fixup_header(header)
+    fixed_header = remove_invalid_bytes(header)
+    until fixed_header.size == 5 do
+      bytes_needed = 5 - fixed_header.size
+      data = read_next_chunk(bytes_needed, true)
+      return nil unless data && data.size == bytes_needed
+      fixed_header += data.unpack("C#{bytes_needed}")
+      fixed_header = remove_invalid_bytes(fixed_header)
+    end
+    fixed_header
+  end
+
+  def remove_invalid_bytes(header=[])
+    fixed_header = header.drop_while {|i| i != 0xFF }
+    # FF FF FF
+    if fixed_header.size >= 3 && fixed_header[1] == 0xFF && fixed_header[2] == 0xFF
+      fixed_header.drop(1)
+
+    # FF <not FF or FE>
+    elsif fixed_header.size >= 2 && fixed_header[1] != 0xFF && fixed_header[1] != 0xFE
+      fixed_header.drop(2)
+
+    # all good
+    else
+      fixed_header
+    end
   end
 
   def read_body(len, blocking=false)
@@ -245,13 +276,13 @@ class Sphero
   def read_next_chunk(len, blocking=false)
     data = nil
     begin
-      @lock.synchronize do
+      #@lock.synchronize do
         if blocking || is_windows?
           data = @sp.read(len)
         else
           data = @sp.read_nonblock(len)
         end
-      end
+      #end
     rescue Errno::EBUSY
       retry
     rescue Exception => e
@@ -259,6 +290,7 @@ class Sphero
       puts e.backtrace.inspect
       return nil
     end
+    return nil unless data
     data
   end  
 
