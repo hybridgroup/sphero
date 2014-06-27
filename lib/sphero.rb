@@ -250,8 +250,8 @@ class Sphero
   end
 
   def initialize_serialport dev
-    require 'serialport'
-    @sp = SerialPort.new dev, 115200, 8, 1, SerialPort::NONE
+    require 'rubyserial'
+    @sp = Serial.new dev, 115200
     if is_windows?
       @sp.read_timeout=1000
       @sp.write_timeout=0
@@ -268,19 +268,14 @@ class Sphero
   def write packet
     header, body = nil
 
-    IO.select([], [@sp], [], 1)
-    @lock.synchronize do
-      @sp.write packet.to_str
-      @seq += 1
-    end
-    IO.select([@sp], [], [], 1)
+    @sp.write packet.to_str
+    @seq += 1
     header = read_header(true)
     body = read_body(header.last, true) if header
     # pick off asynch packets and store, till we get to the message response
     while header && Response.async?(header)
       messages << Response::AsyncResponse.response(header, body)
 
-      IO.select([@sp], [], [], 1)
       header = read_header(true)
       if header
         body = read_body(header.last, true)
@@ -334,12 +329,10 @@ class Sphero
   def read_next_chunk(len, blocking=false)
     data = nil
     begin
-      @lock.synchronize do
-        if blocking || is_windows?
-          data = @sp.read(len)
-        else
-          data = @sp.read_nonblock(len)
-        end
+      if blocking || is_windows?
+        data = @sp.read(len)
+      else
+        data = @sp.read_nonblock(len)
       end
     rescue Errno::EBUSY
       retry
