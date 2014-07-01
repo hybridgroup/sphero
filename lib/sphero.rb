@@ -289,7 +289,7 @@ class Sphero
     if response.success?
       @response_queue << response
     else
-      raise "Unable to write to Sphero!"
+      puts "Unable to write to Sphero!"
     end
   end
 
