@@ -297,7 +297,7 @@ class Sphero
     header = nil
     begin
       data = read_next_chunk(5, blocking)
-      return nil unless data
+      return nil unless data && data.length == 5
       header = data.unpack 'C5'
     rescue Errno::EBUSY
       retry
