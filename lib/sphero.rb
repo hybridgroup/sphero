@@ -27,11 +27,13 @@ class Sphero
           end
           return nil
         end
-        return sphero      
-      rescue Errno::EBUSY
-        puts retries_left
-        retries_left = retries_left - 1
-        retry unless retries_left < 0
+        return sphero
+      rescue RubySerial::Exception => e
+        if e.message == 'EBUSY'
+          puts retries_left
+          retries_left = retries_left - 1
+          retry unless retries_left < 0
+        end
       end
     end
   end
@@ -250,15 +252,17 @@ class Sphero
   end
 
   def initialize_serialport dev
-    require 'rubyserial'
-    @sp = Serial.new dev, 115200
-    if is_windows?
-      @sp.read_timeout=1000
-      @sp.write_timeout=0
-      @sp.initial_byte_offset=5
+    begin
+      require 'rubyserial'
+    rescue LoadError
+      puts "Please 'gem install rubyserial' for serial port support."
     end
-  rescue LoadError
-    puts "Please 'gem install hybridgroup-serialport' for serial port support."
+
+    begin
+      @sp = Serial.new dev, 115200
+    rescue RubySerial::Exception => e
+      retry if e.message == 'EBUSY'
+    end
   end
 
   def queue_packet packet
@@ -299,8 +303,8 @@ class Sphero
       data = read_next_chunk(5, blocking)
       return nil unless data && data.length == 5
       header = data.unpack 'C5'
-    rescue Errno::EBUSY
-      retry
+    rescue RubySerial::Exception => e
+      retry if e.message == 'EBUSY'
     rescue Exception => e
       puts e.message
       puts e.backtrace.inspect
@@ -315,8 +319,8 @@ class Sphero
     begin
       data = read_next_chunk(len, blocking)
       return nil unless data && data.length == len
-    rescue Errno::EBUSY
-      retry
+    rescue RubySerial::Exception => e
+      retry if e.message == 'EBUSY'
     rescue Exception => e
       puts e.message
       puts e.backtrace.inspect
@@ -334,8 +338,8 @@ class Sphero
       else
         data = @sp.read_nonblock(len)
       end
-    rescue Errno::EBUSY
-      retry
+    rescue RubySerial::Exception => e
+      retry if e.message == 'EBUSY'
     rescue Exception => e
       puts e.message
       puts e.backtrace.inspect
