@@ -21,9 +21,9 @@ class Sphero
         sphero = self.new dev
         if (block_given?)
           begin
-             sphero.instance_eval(&block)
+            sphero.instance_eval(&block)
           ensure
-             sphero.close
+            sphero.close
           end
           return nil
         end
@@ -63,7 +63,7 @@ class Sphero
       end
     }
   end
-  
+
   def close
     return if @sp.nil? || @sp.closed?
     begin
@@ -172,15 +172,15 @@ class Sphero
   # configure data streaming notification messages
   def set_data_streaming n, m, mask, pcnt, mask2
     queue_packet Request::SetDataStreaming.new(@seq, limit2(n), limit2(m),
-                                              limit4(mask), limit1(pcnt), limit4(mask2) )
+                                               limit4(mask), limit1(pcnt), limit4(mask2) )
   end
 
   # configure collision detection messages
   def configure_collision_detection meth, x_t, y_t, x_spd, y_spd, dead
     queue_packet Request::ConfigureCollisionDetection.new(@seq, limit1(meth),
-                                                         limit1(x_t),   limit1(y_t),
-                                                         limit1(x_spd), limit1(y_spd),
-                                                         limit1(dead) )
+                                                          limit1(x_t),   limit1(y_t),
+                                                          limit1(x_spd), limit1(y_spd),
+                                                          limit1(dead) )
   end
 
   private
@@ -233,12 +233,12 @@ class Sphero
 
   def flag(value)
     case value
-      when true
-        0x01
-      when false
-        0x00
-      else
-        value
+    when true
+      0x01
+    when false
+      0x00
+    else
+      value
     end
   end
 
