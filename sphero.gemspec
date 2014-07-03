@@ -21,6 +21,8 @@ Gem::Specification.new do |s|
   s.summary = "A ruby gem for controlling your Sphero ball"
   s.test_files = ["test/test_sphero.rb", "test/test_sphero_request.rb"]
 
+  s.add_runtime_dependency('rubyserial')
+
   if s.respond_to? :specification_version then
     s.specification_version = 3
 
