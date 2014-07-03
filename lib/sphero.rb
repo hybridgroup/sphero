@@ -1,6 +1,7 @@
 require 'sphero/request'
 require 'sphero/response'
 require 'thread'
+require 'rubyserial'
 
 class Sphero
   VERSION = '1.5.0'
@@ -252,17 +253,9 @@ class Sphero
   end
 
   def initialize_serialport dev
-    begin
-      require 'rubyserial'
-    rescue LoadError
-      puts "Please 'gem install rubyserial' for serial port support."
-    end
-
-    begin
-      @sp = Serial.new dev, 115200
-    rescue RubySerial::Exception => e
-      retry if e.message == 'EBUSY'
-    end
+    @sp = Serial.new dev, 115200
+  rescue RubySerial::Exception => e
+    retry if e.message == 'EBUSY'
   end
 
   def queue_packet packet
