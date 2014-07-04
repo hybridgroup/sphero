@@ -4,8 +4,6 @@ require 'thread'
 require 'rubyserial'
 
 class Sphero
-  VERSION = '1.5.1'
-
   FORWARD = 0
   RIGHT = 90
   BACKWARD = 180
