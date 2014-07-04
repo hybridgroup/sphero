@@ -1,3 +1,4 @@
 pkg
 .rvmrc
 .rbx
+Gemfile.lock

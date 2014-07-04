@@ -1,9 +1,10 @@
 language: ruby
 rvm:
   - 2.0.0
+  - 2.1.0
   - 1.9.3
-  - jruby-1.7.9
-  - rbx-2.1.1
-matrix:
-  allow_failures:
-    - rvm: jruby-1.7.9
+  - jruby
+  - rbx-2.2.10
+script:
+  - bundle install
+  - bundle exec rake test

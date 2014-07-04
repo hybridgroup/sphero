@@ -1,10 +1,9 @@
 require 'sphero/request'
 require 'sphero/response'
 require 'thread'
+require 'rubyserial'
 
 class Sphero
-  VERSION = '1.5.0'
-
   FORWARD = 0
   RIGHT = 90
   BACKWARD = 180
@@ -21,17 +20,19 @@ class Sphero
         sphero = self.new dev
         if (block_given?)
           begin
-             sphero.instance_eval(&block)
+            sphero.instance_eval(&block)
           ensure
-             sphero.close
+            sphero.close
           end
           return nil
         end
-        return sphero      
-      rescue Errno::EBUSY
-        puts retries_left
-        retries_left = retries_left - 1
-        retry unless retries_left < 0
+        return sphero
+      rescue RubySerial::Exception => e
+        if e.message == 'EBUSY'
+          puts retries_left
+          retries_left = retries_left - 1
+          retry unless retries_left < 0
+        end
       end
     end
   end
@@ -61,7 +62,7 @@ class Sphero
       end
     }
   end
-  
+
   def close
     return if @sp.nil? || @sp.closed?
     begin
@@ -170,15 +171,15 @@ class Sphero
   # configure data streaming notification messages
   def set_data_streaming n, m, mask, pcnt, mask2
     queue_packet Request::SetDataStreaming.new(@seq, limit2(n), limit2(m),
-                                              limit4(mask), limit1(pcnt), limit4(mask2) )
+                                               limit4(mask), limit1(pcnt), limit4(mask2) )
   end
 
   # configure collision detection messages
   def configure_collision_detection meth, x_t, y_t, x_spd, y_spd, dead
     queue_packet Request::ConfigureCollisionDetection.new(@seq, limit1(meth),
-                                                         limit1(x_t),   limit1(y_t),
-                                                         limit1(x_spd), limit1(y_spd),
-                                                         limit1(dead) )
+                                                          limit1(x_t),   limit1(y_t),
+                                                          limit1(x_spd), limit1(y_spd),
+                                                          limit1(dead) )
   end
 
   private
@@ -231,12 +232,12 @@ class Sphero
 
   def flag(value)
     case value
-      when true
-        0x01
-      when false
-        0x00
-      else
-        value
+    when true
+      0x01
+    when false
+      0x00
+    else
+      value
     end
   end
 
@@ -250,15 +251,9 @@ class Sphero
   end
 
   def initialize_serialport dev
-    require 'serialport'
-    @sp = SerialPort.new dev, 115200, 8, 1, SerialPort::NONE
-    if is_windows?
-      @sp.read_timeout=1000
-      @sp.write_timeout=0
-      @sp.initial_byte_offset=5
-    end
-  rescue LoadError
-    puts "Please 'gem install hybridgroup-serialport' for serial port support."
+    @sp = Serial.new dev, 115200
+  rescue RubySerial::Exception => e
+    retry if e.message == 'EBUSY'
   end
 
   def queue_packet packet
@@ -268,19 +263,14 @@ class Sphero
   def write packet
     header, body = nil
 
-    IO.select([], [@sp], [], 1)
-    @lock.synchronize do
-      @sp.write packet.to_str
-      @seq += 1
-    end
-    IO.select([@sp], [], [], 1)
+    @sp.write packet.to_str
+    @seq += 1
     header = read_header(true)
     body = read_body(header.last, true) if header
     # pick off asynch packets and store, till we get to the message response
     while header && Response.async?(header)
       messages << Response::AsyncResponse.response(header, body)
 
-      IO.select([@sp], [], [], 1)
       header = read_header(true)
       if header
         body = read_body(header.last, true)
@@ -294,7 +284,7 @@ class Sphero
     if response.success?
       @response_queue << response
     else
-      raise "Unable to write to Sphero!"
+      puts "Unable to write to Sphero!"
     end
   end
 
@@ -302,10 +292,10 @@ class Sphero
     header = nil
     begin
       data = read_next_chunk(5, blocking)
-      return nil unless data
+      return nil unless data && data.length == 5
       header = data.unpack 'C5'
-    rescue Errno::EBUSY
-      retry
+    rescue RubySerial::Exception => e
+      retry if e.message == 'EBUSY'
     rescue Exception => e
       puts e.message
       puts e.backtrace.inspect
@@ -320,8 +310,8 @@ class Sphero
     begin
       data = read_next_chunk(len, blocking)
       return nil unless data && data.length == len
-    rescue Errno::EBUSY
-      retry
+    rescue RubySerial::Exception => e
+      retry if e.message == 'EBUSY'
     rescue Exception => e
       puts e.message
       puts e.backtrace.inspect
@@ -334,15 +324,13 @@ class Sphero
   def read_next_chunk(len, blocking=false)
     data = nil
     begin
-      @lock.synchronize do
-        if blocking || is_windows?
-          data = @sp.read(len)
-        else
-          data = @sp.read_nonblock(len)
-        end
+      if blocking || is_windows?
+        data = @sp.read(len)
+      else
+        data = @sp.read_nonblock(len)
       end
-    rescue Errno::EBUSY
-      retry
+    rescue RubySerial::Exception => e
+      retry if e.message == 'EBUSY'
     rescue Exception => e
       puts e.message
       puts e.backtrace.inspect
