@@ -67,6 +67,7 @@ class Sphero
     return if @sp.nil? || @sp.closed?
     begin
       stop
+      sleep 2
     rescue Exception => e
       puts e.message
     ensure
