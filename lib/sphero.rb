@@ -453,6 +453,7 @@ class Sphero
     'plum'                 => {:r => 221, :g => 160, :b => 221},
     'powderblue'           => {:r => 176, :g => 224, :b => 230},
     'purple'               => {:r => 128, :g => 0, :b => 128},
+    'rebeccapurple'        => {:r => 102, :g => 51, :b => 153},
     'red'                  => {:r => 255, :g => 0, :b => 0},
     'rosybrown'            => {:r => 188, :g => 143, :b => 143},
     'royalblue'            => {:r => 65, :g => 105, :b => 225},
