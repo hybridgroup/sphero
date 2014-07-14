@@ -65,14 +65,8 @@ class Sphero
 
   def close
     return if @sp.nil? || @sp.closed?
-    begin
-      stop
-      sleep 2
-    rescue Exception => e
-      puts e.message
-    ensure
-      @sp.close
-    end
+
+    @sp.close
   end
 
   def ping
@@ -111,6 +105,10 @@ class Sphero
 
   def disable_auto_reconnect
     queue_packet Request::SetAutoReconnect.new(@seq, 0, flag(false) )
+  end
+
+  def enable_stop_on_disconnect
+    queue_packet Request::SetTempOptionFlags.new(@seq, flag(true))
   end
 
   def power_state
