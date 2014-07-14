@@ -65,8 +65,14 @@ class Sphero
 
   def close
     return if @sp.nil? || @sp.closed?
-
-    @sp.close
+    begin
+      stop
+      sleep 2
+    rescue Exception => e
+      puts e.message
+    ensure
+      @sp.close
+    end
   end
 
   def ping
