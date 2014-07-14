@@ -113,6 +113,10 @@ class Sphero
     queue_packet Request::SetAutoReconnect.new(@seq, 0, flag(false) )
   end
 
+  def enable_stop_on_disconnect
+    queue_packet Request::SetTempOptionFlags.new(@seq, flag(true))
+  end
+
   def power_state
     queue_packet Request::GetPowerState.new(@seq)
   end

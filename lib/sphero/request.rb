@@ -133,6 +133,19 @@ class Sphero
       end
     end
 
+    class SetTempOptionFlags < Request
+      def initialize seq, flag
+        super(seq, [flag])
+        @cid = 0x37
+        @did = 0x02
+      end
+
+      private
+      def packet_body
+        @data.pack 'N'
+      end
+    end
+
     GYRO_AXIS_H_FILTERED = 0x0000_0001
     GYRO_AXIS_M_FILTERED = 0x0000_0002
     GYRO_AXIS_L_FILTERED = 0x0000_0004 
