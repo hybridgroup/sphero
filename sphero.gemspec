@@ -11,7 +11,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.name          = "sphero"
   gem.require_paths = ["lib"]
-  gem.version       = "1.5.1"
+  gem.version       = "1.5.2"
 
   gem.add_development_dependency "rake", "~>10.0.4"
   gem.add_development_dependency "mocha", "~>0.13.3"
