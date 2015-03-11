@@ -18,8 +18,10 @@ provided by the bluetooth connection.
 You can easily start your Sphero and send it commands like this:
 
 ```ruby
+require "Sphero"
+
 Sphero.start '/dev/tty.Sphero-YBW-RN-SPP' do
-	roll 60, FORWARD
+	roll 60, Sphero::FORWARD
 	keep_going 3
 
 	roll 60, RIGHT
